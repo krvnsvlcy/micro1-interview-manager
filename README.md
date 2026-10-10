@@ -25,7 +25,7 @@ Create a new **database** (a full-page database or an inline one) with exactly t
 | Property  | Type         |
 | --------- | ------------ |
 | `Name`    | Title        |
-| `Skills`  | Multi-select |
+| `Skills`  | Text         |
 | `URL`     | URL          |
 | `Created` | Created time |
 
@@ -87,12 +87,13 @@ If the variables are missing or wrong, the *Saved Interviews* section shows what
 
 ## How it works
 
-- **Generating:** enter one skill per line. Skills are trimmed, whitespace-collapsed and de-duplicated (case-insensitively). Commas and semicolons also separate skills (they can't appear in a Notion option name or the Micro1 URL), so pasting `PostgreSQL, Redis; Kafka` adds three. The URL comes from the pure function `generateInterviewUrl` in [`src/lib/micro1.ts`](src/lib/micro1.ts).
+- **Generating:** enter one skill per line, exactly as you want it saved. Lines are never split or rewritten; the only cleanup is trimming and collapsing extra spaces, skipping blank lines, and ignoring a repeat of a skill you already listed (case-insensitively). A skill can contain a comma: it is stored as typed and percent-encoded in the link (`Node.js, Express` becomes `Node.js%2C+Express`). The one exception is the semicolon, which Micro1 links use to separate skills, so a line containing one is rejected. In Notion, the `Skills` text holds one skill per line. The URL comes from the pure function `generateInterviewUrl` in [`src/lib/micro1.ts`](src/lib/micro1.ts).
 - **Titles:** if you leave the title blank, one is generated, e.g. `Mock Interview: PostgreSQL, Redis, Kafka +2 more`.
+- **Practicing part of an interview:** in the saved list, each skill is a toggle. Click one to leave it out (it's struck through), or shift-click one to keep only that skill, and **Open** and **Copy** use a link built from only the skills still on, in their original order. With everything on they use the saved link, and **reset** switches everything back on. This is only a view over the saved interview: nothing is written to Notion.
 - **Duplicates:** before saving, the app compares the new skills with every saved interview, ignoring case, spacing and order. On a match it shows the existing interview and creates nothing.
 - **Deleting:** asks for confirmation, then moves the page to Notion's **trash**. The Notion API cannot delete permanently, and you can restore trashed pages from Notion for about 30 days. The server refuses to trash any page that is not in the configured data source.
 - **Server only:** every Notion call lives in [`src/lib/notion.ts`](src/lib/notion.ts) (marked `server-only`) and is reached through the server actions in [`src/app/actions.ts`](src/app/actions.ts). Actions re-validate their input because they are public endpoints.
-- **Limits:** at most 20 skills per interview, 100 characters per skill (Notion's limit for multi-select option names), and a 2000-character URL (Notion's limit for URL properties).
+- **Limits:** at most 20 skills per interview, and a 2000-character link (Notion's limit for URL properties). There is no limit on the length of a single skill beyond that.
 
 ## Project layout
 

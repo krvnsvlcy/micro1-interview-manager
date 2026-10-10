@@ -9,8 +9,8 @@ import {
   isNotionClientError,
   type PageObjectResponse,
 } from "@notionhq/client";
-import { generateInterviewUrl } from "./micro1";
-import { skillsKey } from "./skills";
+import { generateInterviewUrl, skillsFromInterviewUrl } from "./micro1";
+import { normalizeSkills, parseSkills, skillsKey } from "./skills";
 import type { Interview } from "./types";
 
 // Property names the Notion database must have (see README).
@@ -51,7 +51,7 @@ function toNotionError(error: unknown): NotionError {
         );
       case APIErrorCode.ValidationError:
         return new NotionError(
-          `Notion rejected the request: ${error.message} Make sure the database has the properties Name (title), Skills (multi-select) and URL (URL).`,
+          `Notion rejected the request: ${error.message} Make sure the database has the properties Name (title), Skills (text) and URL (URL).`,
         );
       case APIErrorCode.RateLimited:
         return new NotionError("Notion is rate limiting requests. Try again in a moment.");
@@ -79,16 +79,21 @@ function toInterview(page: PageObjectResponse): Interview {
   const skills = page.properties[PROPERTY.skills];
   const url = page.properties[PROPERTY.url];
 
-  const skillNames = skills?.type === "multi_select" ? skills.multi_select.map((o) => o.name) : [];
+  // Skills are plain text, one per line, exactly as they were typed.
+  const text = skills?.type === "rich_text" ? skills.rich_text.map((t) => t.plain_text).join("") : "";
+  const link = url?.type === "url" ? url.url : null;
+  // A row added by hand with only a link has no skills text: read them from it.
+  const typed = parseSkills(text);
+  const skillList = typed.length > 0 ? typed : normalizeSkills(skillsFromInterviewUrl(link ?? "") ?? []);
 
   return {
     id: page.id,
     title:
       (title?.type === "title" ? title.title.map((t) => t.plain_text).join("").trim() : "") ||
       "Untitled interview",
-    skills: skillNames,
+    skills: skillList,
     // Rows added by hand in Notion may lack a URL; derive it from the skills.
-    url: (url?.type === "url" && url.url) || generateInterviewUrl(skillNames),
+    url: link || generateInterviewUrl(skillList),
     createdAt: page.created_time,
   };
 }
@@ -122,7 +127,9 @@ export async function saveInterview(
       parent: { type: "data_source_id", data_source_id: dataSourceId },
       properties: {
         [PROPERTY.title]: { title: [{ text: { content: input.title } }] },
-        [PROPERTY.skills]: { multi_select: input.skills.map((name) => ({ name })) },
+        // Plain text, so commas and anything else survive. It always fits the
+        // 2000-character limit: the link, which is longer, is capped at that.
+        [PROPERTY.skills]: { rich_text: [{ text: { content: input.skills.join("\n") } }] },
         [PROPERTY.url]: { url: input.url },
       },
     });

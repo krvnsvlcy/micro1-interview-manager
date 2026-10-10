@@ -1,24 +1,26 @@
 export const MAX_SKILLS = 20;
-// Notion rejects multi-select option names longer than 100 characters.
-export const MAX_SKILL_LENGTH = 100;
 export const MAX_TITLE_LENGTH = 120;
 
-// Commas can't appear in Notion multi-select option names and semicolons
-// separate skills in the Micro1 URL, so both always split a skill apart.
-const DELIMITERS = /[,;\r\n]+/;
+// A skill is a line, taken as typed: it is never split apart or rewritten.
+const LINE_BREAKS = /[\r\n]+/;
+
+// Micro1 links separate skills with a semicolon, so one inside a skill would be
+// read as two. Rather than splitting it (which would change what was typed),
+// validation rejects it. Commas are fine: URL encoding keeps them intact.
+const RESERVED_CHARACTERS = /;/;
 
 export function collapseWhitespace(text: string): string {
   return text.replace(/\s+/g, " ").trim();
 }
 
-/** Splits free-form text (e.g. a pasted list) into trimmed, non-empty skills. */
+/** One skill per line: trims each line and skips the blank ones. */
 export function parseSkills(text: string): string[] {
-  return text.split(DELIMITERS).map(collapseWhitespace).filter(Boolean);
+  return text.split(LINE_BREAKS).map(collapseWhitespace).filter(Boolean);
 }
 
 /**
- * Cleans a list of skills: splits on delimiters, collapses whitespace, and
- * drops case-insensitive repeats (the first spelling and position win).
+ * Cleans a list of skills: one per line, whitespace collapsed, and
+ * case-insensitive repeats dropped (the first spelling and position win).
  */
 export function normalizeSkills(skills: string[]): string[] {
   const seen = new Set<string>();
@@ -46,11 +48,33 @@ export function skillsKey(skills: string[]): string {
   );
 }
 
+/**
+ * Which skills are switched off after clicking a chip. A plain click flips that
+ * one skill; a shift-click keeps only that skill (it is on, all others are off).
+ */
+export function toggleOff(
+  off: ReadonlySet<string>,
+  skills: string[],
+  skill: string,
+  only: boolean,
+): Set<string> {
+  if (only) return new Set(skills.filter((s) => s !== skill));
+
+  const next = new Set(off);
+  if (next.has(skill)) next.delete(skill);
+  else next.add(skill);
+  return next;
+}
+
 export function defaultTitle(skills: string[]): string {
   const shown = skills.slice(0, 3).join(", ");
   const rest = skills.length - 3;
 
   return `Mock Interview: ${shown}${rest > 0 ? ` +${rest} more` : ""}`;
+}
+
+function preview(skill: string): string {
+  return skill.length > 24 ? `${skill.slice(0, 24)}…` : skill;
 }
 
 type Validation =
@@ -76,14 +100,13 @@ export function validateInterviewInput(input: {
   if (skills.length > MAX_SKILLS) {
     return { ok: false, error: `Use at most ${MAX_SKILLS} skills.` };
   }
-  const tooLong = skills.find((skill) => skill.length > MAX_SKILL_LENGTH);
-  if (tooLong) {
+  const reserved = skills.find((skill) => RESERVED_CHARACTERS.test(skill));
+  if (reserved) {
     return {
       ok: false,
-      error: `"${tooLong.slice(0, 24)}…" is too long (max ${MAX_SKILL_LENGTH} characters).`,
+      error: `"${preview(reserved)}" has a semicolon, which separates skills in a Micro1 link. Put each skill on its own line.`,
     };
   }
-
   const title = typeof input.title === "string" ? collapseWhitespace(input.title) : "";
   if (title.length > MAX_TITLE_LENGTH) {
     return {

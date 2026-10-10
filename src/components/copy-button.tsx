@@ -4,7 +4,7 @@ import { useState } from "react";
 import { CheckIcon, CopyIcon } from "./icons";
 import { useToast } from "./toast";
 
-export function CopyButton({ text }: { text: string }) {
+export function CopyButton({ text, disabled = false }: { text: string; disabled?: boolean }) {
   const [copied, setCopied] = useState(false);
   const toast = useToast();
 
@@ -22,7 +22,7 @@ export function CopyButton({ text }: { text: string }) {
   }
 
   return (
-    <button type="button" onClick={copy} className="btn">
+    <button type="button" onClick={copy} disabled={disabled} className="btn">
       {copied ? <CheckIcon className="text-success" /> : <CopyIcon />}
       {copied ? "Copied" : "Copy"}
     </button>

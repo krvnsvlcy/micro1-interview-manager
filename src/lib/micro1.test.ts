@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { generateInterviewUrl } from "./micro1";
+import { generateInterviewUrl, skillsFromInterviewUrl } from "./micro1";
 
 describe("generateInterviewUrl", () => {
   it("matches the documented Micro1 format", () => {
@@ -32,5 +32,29 @@ describe("generateInterviewUrl", () => {
     const url = new URL(generateInterviewUrl(["b", "a"]));
 
     expect(url.searchParams.get("skills")).toBe("b;a");
+  });
+});
+
+describe("commas in skills", () => {
+  it("are percent-encoded as provided", () => {
+    expect(generateInterviewUrl(["Node.js, Express", "Go"])).toBe(
+      "https://interview.micro1.ai/mock-interview/?skills=Node.js%2C+Express%3BGo",
+    );
+  });
+});
+
+describe("skillsFromInterviewUrl", () => {
+  it("reads back exactly the skills that built the link", () => {
+    const skills = ["Node.js, Express", "C++", "REST API Design", "CI/CD", "Next.js (App Router)", "100%"];
+
+    expect(skillsFromInterviewUrl(generateInterviewUrl(skills))).toEqual(skills);
+  });
+
+  it("returns null for anything that is not a Micro1 mock interview link", () => {
+    expect(skillsFromInterviewUrl("https://example.com/?skills=a%3Bb")).toBeNull();
+    expect(skillsFromInterviewUrl("https://interview.micro1.ai/mock-interview/")).toBeNull();
+    expect(skillsFromInterviewUrl("https://interview.micro1.ai/other/?skills=a")).toBeNull();
+    expect(skillsFromInterviewUrl("not a url")).toBeNull();
+    expect(skillsFromInterviewUrl("")).toBeNull();
   });
 });

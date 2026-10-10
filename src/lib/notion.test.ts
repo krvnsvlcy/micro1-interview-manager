@@ -1,4 +1,5 @@
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { generateInterviewUrl } from "./micro1";
 
 // The SDK captures the global `fetch` when its client is first created, so the
 // stub has to be in place before the module under test creates that client.
@@ -32,7 +33,7 @@ function json(body: unknown, status = 200) {
 function page(
   id: string,
   skills: string[],
-  { title = `Title ${id}`, url = `https://interview.micro1.ai/mock-interview/?skills=${id}`, parent = DATA_SOURCE_ID } = {},
+  { title = `Title ${id}`, url = generateInterviewUrl(skills), parent = DATA_SOURCE_ID } = {},
 ) {
   return {
     object: "page",
@@ -42,7 +43,8 @@ function page(
     parent: { type: "data_source_id", data_source_id: parent, database_id: "db" },
     properties: {
       Name: { type: "title", title: [{ plain_text: title }] },
-      Skills: { type: "multi_select", multi_select: skills.map((name) => ({ name })) },
+      // Skills are a plain-text property: one skill per line.
+      Skills: { type: "rich_text", rich_text: [{ plain_text: skills.join("\n") }] },
       URL: { type: "url", url },
     },
   };
@@ -80,10 +82,28 @@ describe("listInterviews", () => {
         id: "a",
         title: "Backend",
         skills: ["PostgreSQL", "Redis"],
-        url: "https://interview.micro1.ai/mock-interview/?skills=a",
+        url: generateInterviewUrl(["PostgreSQL", "Redis"]),
         createdAt: "2026-10-01T12:00:00.000Z",
       },
     ]);
+  });
+
+  it("reads skills back exactly as stored, commas included", async () => {
+    fetchMock.mockResolvedValueOnce(list([page("c", ["Node.js, Express", "C++", "Go"])]));
+
+    const [interview] = await notion.listInterviews();
+
+    expect(interview.skills).toEqual(["Node.js, Express", "C++", "Go"]);
+    expect(interview.url).toContain("Node.js%2C+Express"); // the link carries the comma, encoded
+  });
+
+  it("reads the skills from the link when a row's skills text is empty", async () => {
+    const byHand = page("h", [], { url: generateInterviewUrl(["Kafka", "Node.js, Express"]) });
+    fetchMock.mockResolvedValueOnce(list([byHand]));
+
+    const [interview] = await notion.listInterviews();
+
+    expect(interview.skills).toEqual(["Kafka", "Node.js, Express"]);
   });
 
   it("follows pagination", async () => {
@@ -139,13 +159,45 @@ describe("saveInterview", () => {
     expect(create.body.parent).toEqual({ type: "data_source_id", data_source_id: DATA_SOURCE_ID });
     expect(create.body.properties).toEqual({
       Name: { title: [{ text: { content: "My interview" } }] },
-      Skills: { multi_select: [{ name: "PostgreSQL" }, { name: "Redis" }] },
+      Skills: { rich_text: [{ text: { content: "PostgreSQL\nRedis" } }] },
       URL: { url: input.url },
     });
     expect(result).toEqual({
       created: true,
       interview: { id: "new-page", ...input, createdAt: "2026-10-01T12:00:00.000Z" },
     });
+  });
+});
+
+describe("skills containing commas", () => {
+  const input = {
+    title: "Express loop",
+    skills: ["Node.js, Express", "Go"],
+    url: generateInterviewUrl(["Node.js, Express", "Go"]),
+  };
+
+  it("are written to Notion verbatim as plain text, and encoded in the link", async () => {
+    fetchMock
+      .mockResolvedValueOnce(list([]))
+      .mockResolvedValueOnce(json(page("new", input.skills, { title: input.title, url: input.url })));
+
+    await notion.saveInterview(input);
+
+    expect(request(1).body.properties.Skills).toEqual({
+      rich_text: [{ text: { content: "Node.js, Express\nGo" } }],
+    });
+    expect(request(1).body.properties.URL).toEqual({
+      url: "https://interview.micro1.ai/mock-interview/?skills=Node.js%2C+Express%3BGo",
+    });
+  });
+
+  it("are recognised as duplicates of an existing row", async () => {
+    fetchMock.mockResolvedValueOnce(list([page("existing", ["go", "node.js,  express"])]));
+
+    const result = await notion.saveInterview(input);
+
+    expect(result.created).toBe(false);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -229,6 +281,6 @@ describe("error handling", () => {
 
     expect(error).toBeInstanceOf(notion.NotionError);
     expect(error.message).toContain("Skills is not a property that exists.");
-    expect(error.message).toContain("Name (title), Skills (multi-select) and URL (URL)");
+    expect(error.message).toContain("Name (title), Skills (text) and URL (URL)");
   });
 });

@@ -26,7 +26,7 @@ export async function createInterviewAction(input: {
 
   const url = generateInterviewUrl(parsed.skills);
   if (url.length > MAX_URL_LENGTH) {
-    return { ok: false, error: "That's too many skills for one link. Remove a few." };
+    return { ok: false, error: "That link would be too long (the limit is 2000 characters). Shorten or remove some skills." };
   }
 
   try {

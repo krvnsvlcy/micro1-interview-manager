@@ -64,8 +64,9 @@ export function InterviewForm() {
     // the pane has left.
     <section aria-label="New interview" className="mt-10 flex flex-1 flex-col">
       {/* Below `2xl` the generated link sits under the form (row 2); on very wide
-          screens it gets its own column beside it. */}
-      <div className="grid flex-1 grid-rows-[1fr_auto] gap-x-12 2xl:grid-cols-[minmax(0,1fr)_26rem] 2xl:grid-rows-[1fr]">
+          screens it gets its own column beside it. `minmax(0, 1fr)` lets a column
+          shrink below its content, so one very long skill can't widen the form. */}
+      <div className="grid flex-1 grid-cols-[minmax(0,1fr)] grid-rows-[1fr_auto] gap-x-12 2xl:grid-cols-[minmax(0,1fr)_26rem] 2xl:grid-rows-[1fr]">
         <form onSubmit={handleSubmit} className="flex flex-col gap-6">
           <div className="space-y-2">
             <label htmlFor="title" className="label block">
@@ -91,8 +92,6 @@ export function InterviewForm() {
               id="skills"
               value={skillsText}
               onChange={(event) => setSkillsText(event.target.value)}
-              // Tidy up when leaving: a pasted "a, b, c" becomes one skill per line.
-              onBlur={() => setSkillsText(skills.join("\n"))}
               rows={8}
               placeholder={"PostgreSQL\nDatabase Design\nDistributed Systems"}
               autoComplete="off"
@@ -102,7 +101,7 @@ export function InterviewForm() {
               className="field min-h-48 flex-1 resize-none"
             />
             <div id="skills-hint" className="flex justify-between gap-3 text-xs text-muted">
-              <p>One skill per line. A pasted comma-separated list works too.</p>
+              <p>One skill per line.</p>
               <span className={`shrink-0 tabular-nums ${skills.length > MAX_SKILLS ? "text-danger" : ""}`}>
                 {skills.length}/{MAX_SKILLS}
               </span>
@@ -153,7 +152,7 @@ function GeneratedLink({ interview, existing }: Result) {
       </p>
       <h3 className="mt-4 text-2xl leading-tight font-black tracking-tight break-words">{interview.title}</h3>
       <div className="mt-3">
-        <SkillTags skills={interview.skills} tone="tile" />
+        <SkillTags skills={interview.skills} />
       </div>
       <p className="mt-5 border border-current/25 p-3 font-mono text-xs break-all select-all">{interview.url}</p>
       <div className="mt-4 flex flex-wrap gap-2">

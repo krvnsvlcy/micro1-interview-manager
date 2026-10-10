@@ -2,11 +2,13 @@
 
 import { useState, useTransition } from "react";
 import { deleteInterviewAction } from "@/app/actions";
+import { generateInterviewUrl } from "@/lib/micro1";
+import { toggleOff } from "@/lib/skills";
 import type { Interview } from "@/lib/types";
 import { ConfirmDialog } from "./confirm-dialog";
 import { CopyButton } from "./copy-button";
 import { ExternalLinkIcon, TrashIcon } from "./icons";
-import { SkillTags } from "./skill-tags";
+import { SkillToggles } from "./skill-toggles";
 import { useToast } from "./toast";
 
 type Props = {
@@ -21,6 +23,19 @@ export function InterviewCard({ interview, createdLabel }: Props) {
   const [deleted, setDeleted] = useState(false);
   const [isDeleting, startTransition] = useTransition();
   const toast = useToast();
+
+  // Skills switched off for practice. Only changes the link below; the saved
+  // interview itself is untouched.
+  const [off, setOff] = useState<ReadonlySet<string>>(new Set());
+  const total = interview.skills.length;
+  const enabled = interview.skills.filter((skill) => !off.has(skill));
+  const partial = enabled.length < total;
+  // With everything on this is the saved link; otherwise a link for just the rest.
+  const link = partial ? generateInterviewUrl(enabled) : interview.url;
+
+  function toggle(skill: string, only: boolean) {
+    setOff((current) => toggleOff(current, interview.skills, skill, only));
+  }
 
   function remove() {
     startTransition(async () => {
@@ -48,8 +63,19 @@ export function InterviewCard({ interview, createdLabel }: Props) {
     <li className="border-b border-line px-5 py-4 sm:px-8 lg:px-6">
       <p className="label flex items-center justify-between gap-3">
         <time dateTime={interview.createdAt}>{createdLabel}</time>
-        <span>
-          {interview.skills.length} {interview.skills.length === 1 ? "skill" : "skills"}
+        <span className="flex items-center gap-3">
+          {partial && (
+            <button
+              type="button"
+              onClick={() => setOff(new Set())}
+              className="cursor-pointer uppercase underline underline-offset-2 hover:text-ink"
+            >
+              reset
+            </button>
+          )}
+          <span>
+            {partial ? `${enabled.length} of ${total}` : total} {total === 1 ? "skill" : "skills"}
+          </span>
         </span>
       </p>
 
@@ -58,15 +84,23 @@ export function InterviewCard({ interview, createdLabel }: Props) {
       </h3>
 
       <div className="mt-3">
-        <SkillTags skills={interview.skills} />
+        <SkillToggles skills={interview.skills} off={off} onToggle={toggle} />
       </div>
 
       <div className="mt-4 flex flex-wrap gap-1.5">
-        <a href={interview.url} target="_blank" rel="noopener noreferrer" className="btn">
-          <ExternalLinkIcon />
-          Open
-        </a>
-        <CopyButton text={interview.url} />
+        {enabled.length > 0 ? (
+          <a href={link} target="_blank" rel="noopener noreferrer" className="btn">
+            <ExternalLinkIcon />
+            Open
+          </a>
+        ) : (
+          // A link with no skills isn't useful; switch one back on.
+          <button type="button" disabled className="btn">
+            <ExternalLinkIcon />
+            Open
+          </button>
+        )}
+        <CopyButton text={link} disabled={enabled.length === 0} />
         <button type="button" onClick={() => setConfirming(true)} className="btn btn-danger">
           <TrashIcon />
           Delete
