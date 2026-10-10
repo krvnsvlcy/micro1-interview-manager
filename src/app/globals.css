@@ -1,0 +1,114 @@
+@import "tailwindcss";
+
+/* Dark mode follows the `dark` class that next-themes puts on <html>. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/*
+ * Neutral palette: Charcoal, Mid Grey, Foggy and Star Dust do almost all the
+ * work. Steel Teal is the only color, kept for focus rings and info states.
+ * The big swatches in the palette sheet carry no hex codes, so the "main"
+ * shades used here (Charcoal #1A1A1A, Foggy #BAB8A2, Star Dust #EAE5E2) are
+ * interpolated between their labelled neighbours.
+ *
+ * Dark mode is Star Dust on Charcoal; light mode is the reverse.
+ */
+:root {
+  --canvas: #f2edea;
+  --surface: #f9f3f1;
+  --subtle: #e2ddda;
+  --line: #cecac8;
+  --ink: #1a1a1a;
+  --muted: #606060; /* Mid Grey darkened: #757575 misses 4.5:1 on Star Dust */
+  --accent: #1a1a1a;
+  --accent-ink: #f2edea;
+  --ring: #517380; /* Steel Teal */
+  --tag: #e2ddda;
+  --tag-ink: #353535;
+  --tile: #bab8a2; /* Foggy */
+  --tile-ink: #1a1a1a;
+  --danger: #a8382b;
+  --success: #3b7554;
+  color-scheme: light;
+}
+
+.dark {
+  --canvas: #111111;
+  --surface: #1a1a1a;
+  --subtle: #232323;
+  --line: #2c2c2c;
+  --ink: #f2edea;
+  --muted: #a1a1a1; /* Mid Grey */
+  --accent: #eae5e2;
+  --accent-ink: #111111;
+  --ring: #6c9bad; /* Steel Teal, lighter stop */
+  --tag: #2c2c2c;
+  --tag-ink: #d8d3d1;
+  --tile: #bab8a2; /* Foggy */
+  --tile-ink: #1a1a1a;
+  --danger: #e5897b;
+  --success: #9cc9a8;
+  color-scheme: dark;
+}
+
+@theme inline {
+  --color-canvas: var(--canvas);
+  --color-surface: var(--surface);
+  --color-subtle: var(--subtle);
+  --color-line: var(--line);
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-accent: var(--accent);
+  --color-accent-ink: var(--accent-ink);
+  --color-ring: var(--ring);
+  --color-tag: var(--tag);
+  --color-tag-ink: var(--tag-ink);
+  --color-tile: var(--tile);
+  --color-tile-ink: var(--tile-ink);
+  --color-danger: var(--danger);
+  --color-success: var(--success);
+  --font-sans: var(--font-cairo);
+  --font-mono: var(--font-geist-mono);
+  --animate-toast-in: toast-in 160ms ease-out;
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--line) transparent;
+}
+
+body {
+  background: var(--canvas);
+  color: var(--ink);
+  font-family: var(--font-cairo), system-ui, sans-serif;
+}
+
+@layer components {
+  /* Tiny uppercase monospace caption. */
+  .label {
+    @apply font-mono text-[11px] leading-none font-medium tracking-[0.1em] text-muted uppercase;
+  }
+
+  .field {
+    @apply w-full rounded-none border border-line bg-surface px-3.5 py-2.5 text-base text-ink outline-none transition placeholder:text-muted/75 focus:border-ring focus:ring-1 focus:ring-ring disabled:opacity-60;
+  }
+
+  /* Outlined pill. Inherits its color, so it works on any background. */
+  .btn {
+    @apply inline-flex cursor-pointer items-center justify-center gap-1.5 rounded-full border border-current/30 px-4 py-1.5 text-sm font-semibold lowercase transition outline-none hover:bg-current/10 focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50;
+  }
+
+  .btn-primary {
+    @apply border-transparent bg-accent px-6 py-2.5 text-base text-accent-ink hover:bg-accent/85;
+  }
+
+  .btn-danger {
+    @apply text-danger hover:bg-danger/10;
+  }
+}
